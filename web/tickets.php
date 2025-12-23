@@ -1,22 +1,12 @@
 <?php
-require __DIR__ . '/config.php';
+require __DIR__ . '/app/bootstrap.php';
 
-if (!isset($_SESSION['user_id'])) {
-    flash('danger', 'Faça login para acessar.');
-    header('Location: index.php#login');
-    exit;
-}
+requireLogin();
 
 $currentPage = 'tickets';
-$userName = $_SESSION['user_name'] ?? 'Cidadão';
-$userType = $_SESSION['user_type'] ?? 'populacao';
-$flash = consumeFlash();
+$userType = currentUserType();
 
-if (!in_array($userType, ['gestor', 'admin'], true)) {
-    flash('danger', 'Acesso restrito a gestores ou administradores.');
-    header('Location: home.php');
-    exit;
-}
+requireRoles(['gestor', 'admin']);
 
 $statusOptions = [
     'aberta' => 'Aberta',
@@ -33,18 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo = getPDO();
             // Carrega dados do protocolo e do usuário para notificar
-            $stmtInfo = $pdo->prepare('
-                SELECT sr.service_name, sr.problem_type, sr.address, sr.status, u.name, u.email, u.phone
-                FROM service_requests sr
-                INNER JOIN users u ON u.id = sr.user_id
-                WHERE sr.id = :id
-                LIMIT 1
-            ');
-            $stmtInfo->execute(['id' => $ticketId]);
-            $info = $stmtInfo->fetch();
+            $info = findServiceRequestInfo($pdo, $ticketId);
 
-            $stmt = $pdo->prepare('UPDATE service_requests SET status = :status, updated_at = NOW() WHERE id = :id');
-            $stmt->execute(['status' => $newStatus, 'id' => $ticketId]);
+            updateServiceRequestStatus($pdo, $ticketId, $newStatus);
             flash('success', 'Status atualizado.');
 
             // Notifica usuário sobre o novo status
@@ -92,36 +73,10 @@ $tickets = [];
 $ticketsError = null;
 try {
     $pdo = getPDO();
-    $sql = '
-        SELECT sr.id, sr.service_name, sr.problem_type, sr.status, sr.created_at, sr.evidence_files,
-               u.name AS user_name, u.email AS user_email, u.phone AS user_phone
-        FROM service_requests sr
-        INNER JOIN users u ON u.id = sr.user_id
-    ';
-    $params = [];
-    if ($filterService !== '' && array_key_exists($filterService, $serviceOptions)) {
-        $sql .= ' WHERE sr.service_name = :service ';
-        $params['service'] = $filterService;
-    }
-    $sql .= ' ORDER BY sr.created_at DESC';
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $tickets = $stmt->fetchAll();
+    $tickets = listTickets($pdo, $filterService !== '' && array_key_exists($filterService, $serviceOptions) ? $filterService : null);
 } catch (Throwable $e) {
     $ticketsError = 'Erro ao carregar chamados: ' . $e->getMessage();
 }
-
-$statusClasses = [
-    'aberta' => 'bg-info text-dark',
-    'aberto' => 'bg-info text-dark', // fallback caso haja registros antigos
-    'em_andamento' => 'bg-warning text-dark',
-    'em andamento' => 'bg-warning text-dark',
-    'concluida' => 'bg-success',
-    'concluído' => 'bg-success',
-    'concluido' => 'bg-success',
-    'cancelada' => 'bg-danger',
-];
 ?>
 <!doctype html>
 <html lang="pt-BR">
@@ -131,65 +86,12 @@ $statusClasses = [
     <title>Chamados - Administração</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="assets/css/app.css" rel="stylesheet">
     <style>
-        :root {
-            --brand-bg: #0f172a;
-            --brand-accent: #0ea5e9;
-        }
-        * { font-family: 'Space Grotesk', 'Segoe UI', sans-serif; }
-        body {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #0b1221 0%, #0f172a 60%, #0b1221 100%);
-            color: #e2e8f0;
-        }
-        .layout {
-            display: grid;
-            grid-template-columns: 260px 1fr;
-            min-height: 100vh;
-        }
-        .sidebar {
-            background: rgba(255, 255, 255, 0.03);
-            border-right: 1px solid rgba(255, 255, 255, 0.06);
-            padding: 24px;
-            box-shadow: 8px 0 30px rgba(0,0,0,0.2);
-        }
-        .brand {
-            font-weight: 700;
-            color: #7dd3fc;
-            letter-spacing: 0.3px;
-        }
-        .nav-link {
-            color: #cbd5e1;
-            border-radius: 12px;
-            padding: 12px 14px;
-            margin-bottom: 8px;
-        }
-        .nav-link.active, .nav-link:hover {
-            background: rgba(14,165,233,0.12);
-            color: #e2e8f0;
-            border: 1px solid rgba(14,165,233,0.35);
-        }
-        .content { padding: 36px; }
-        .glass {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 18px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.35);
-        }
         .badge-soft {
             background: rgba(14,165,233,0.15);
             color: #7dd3fc;
             border: 1px solid rgba(125, 211, 252, 0.35);
-        }
-        .btn-brand {
-            background: linear-gradient(135deg, #0ea5e9, #22d3ee);
-            color: #0b1221;
-            font-weight: 700;
-            border: none;
-        }
-        .btn-brand:hover {
-            background: linear-gradient(135deg, #0aa1e5, #1bcde7);
-            color: #0b1221;
         }
         .btn-ghost {
             border: 1px solid rgba(255,255,255,0.2);
@@ -211,30 +113,10 @@ $statusClasses = [
 </head>
 <body>
 <div class="layout">
-    <aside class="sidebar">
-        <div class="d-flex align-items-center justify-content-between mb-4">
-            <span class="brand">Prefeitura Digital</span>
-        </div>
-        <nav class="nav flex-column">
-            <a class="nav-link <?php echo $currentPage === 'home' ? 'active' : ''; ?>" href="home.php">Início</a>
-            <a class="nav-link <?php echo $currentPage === 'services' ? 'active' : ''; ?>" href="services.php">Serviços</a>
-            <a class="nav-link <?php echo $currentPage === 'requests' ? 'active' : ''; ?>" href="requests.php">Meus protocolos</a>
-            <a class="nav-link <?php echo $currentPage === 'profile' ? 'active' : ''; ?>" href="profile.php">Meu perfil</a>
-            <?php if (in_array($userType, ['gestor', 'admin'], true)): ?>
-                <a class="nav-link <?php echo $currentPage === 'tickets' ? 'active' : ''; ?>" aria-current="page" href="tickets.php">Chamados</a>
-                <a class="nav-link <?php echo $currentPage === 'completed' ? 'active' : ''; ?>" href="completed.php">Concluídos</a>
-                <a class="nav-link <?php echo $currentPage === 'users' ? 'active' : ''; ?>" href="users.php">Gestão de usuários</a>
-            <?php endif; ?>
-            <a class="nav-link" href="logout.php">Sair</a>
-        </nav>
-    </aside>
+    <?php require __DIR__ . '/app/partials/sidebar.php'; ?>
 
     <main class="content">
-        <?php if ($flash): ?>
-            <div class="alert alert-<?php echo htmlspecialchars($flash['type']); ?> mb-3">
-                <?php echo htmlspecialchars($flash['message']); ?>
-            </div>
-        <?php endif; ?>
+        <?php renderFlash(); ?>
 
         <div class="glass p-4 mb-4">
             <p class="text-uppercase small text-info mb-1">Administração</p>
@@ -286,23 +168,14 @@ $statusClasses = [
                         <tbody>
                         <?php foreach ($tickets as $t): ?>
                             <?php
-                            $files = [];
-                            if (!empty($t['evidence_files'])) {
-                                $decoded = json_decode($t['evidence_files'], true);
-                                if (is_array($decoded)) {
-                                    $files = $decoded;
-                                } elseif (is_string($t['evidence_files'])) {
-                                    $files = [$t['evidence_files']];
-                                }
-                            }
+                            $files = parseEvidenceFiles($t['evidence_files'] ?? null);
                             $firstImage = $files[0] ?? null;
                             $evidenceCount = count($files);
                             $tooltipHtml = $firstImage
                                 ? '<img src="' . htmlspecialchars($firstImage, ENT_QUOTES) . '" style="max-width:220px; border-radius:8px;" />'
                                 : 'Nenhuma imagem';
                             $tooltipAttr = htmlspecialchars($tooltipHtml, ENT_QUOTES);
-                            $statusKey = strtolower((string)$t['status']);
-                            $badgeClass = $statusClasses[$statusKey] ?? 'bg-secondary';
+                            $badgeClass = statusBadgeClass((string)$t['status']);
                             ?>
                             <tr>
                                 <td>#<?php echo htmlspecialchars($t['id']); ?></td>

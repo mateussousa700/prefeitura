@@ -1,17 +1,11 @@
 <?php
-require __DIR__ . '/config.php';
+require __DIR__ . '/app/bootstrap.php';
 
-if (!isset($_SESSION['user_id'])) {
-    flash('danger', 'Faça login para acessar.');
-    header('Location: index.php#login');
-    exit;
-}
+requireLogin();
 
 $currentPage = 'profile';
-$userId = (int)$_SESSION['user_id'];
-$userName = $_SESSION['user_name'] ?? 'Cidadão';
-$userType = $_SESSION['user_type'] ?? 'populacao';
-$flash = consumeFlash();
+$userId = (int) currentUserId();
+$userType = currentUserType();
 
 $pdo = getPDO();
 
@@ -59,9 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Unicidade de e-mail/CPF
     if (!$errors) {
-        $stmt = $pdo->prepare('SELECT id FROM users WHERE (email = :email OR cpf = :cpf) AND id != :id LIMIT 1');
-        $stmt->execute(['email' => $email, 'cpf' => $cpf, 'id' => $userId]);
-        if ($stmt->fetch()) {
+        if (findOtherUserByEmailOrCpf($pdo, $email, $cpf, $userId)) {
             $errors[] = 'E-mail ou CPF já está em uso por outro usuário.';
         }
     }
@@ -82,20 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'address' => $address,
         'neighborhood' => $neighborhood,
         'zip' => $zipFormatted,
-        'id' => $userId,
     ];
+    $passwordHash = $newPassword !== '' ? password_hash($newPassword, PASSWORD_DEFAULT) : null;
 
-    $sql = 'UPDATE users SET name = :name, phone = :phone, email = :email, cpf = :cpf, address = :address, neighborhood = :neighborhood, zip = :zip, updated_at = NOW()';
-
-    if ($newPassword !== '') {
-        $updateFields['password_hash'] = password_hash($newPassword, PASSWORD_DEFAULT);
-        $sql .= ', password_hash = :password_hash';
-    }
-
-    $sql .= ' WHERE id = :id';
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($updateFields);
+    updateUserProfile($pdo, $userId, $updateFields, $passwordHash);
 
     $_SESSION['user_name'] = $name;
 
@@ -105,9 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Carrega dados do usuário
-$stmt = $pdo->prepare('SELECT name, phone, email, cpf, address, neighborhood, zip, user_type FROM users WHERE id = :id LIMIT 1');
-$stmt->execute(['id' => $userId]);
-$user = $stmt->fetch();
+$user = findUserById($pdo, $userId);
 
 if (!$user) {
     flash('danger', 'Usuário não encontrado.');
@@ -123,52 +103,8 @@ if (!$user) {
     <title>Meu perfil</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="assets/css/app.css" rel="stylesheet">
     <style>
-        :root {
-            --brand-bg: #0f172a;
-            --brand-accent: #0ea5e9;
-            --brand-soft: #1b2438;
-        }
-        * { font-family: 'Space Grotesk', 'Segoe UI', sans-serif; }
-        body {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #0b1221 0%, #0f172a 60%, #0b1221 100%);
-            color: #e2e8f0;
-        }
-        .layout {
-            display: grid;
-            grid-template-columns: 260px 1fr;
-            min-height: 100vh;
-        }
-        .sidebar {
-            background: rgba(255, 255, 255, 0.03);
-            border-right: 1px solid rgba(255, 255, 255, 0.06);
-            padding: 24px;
-            box-shadow: 8px 0 30px rgba(0,0,0,0.2);
-        }
-        .brand {
-            font-weight: 700;
-            color: #7dd3fc;
-            letter-spacing: 0.3px;
-        }
-        .nav-link {
-            color: #cbd5e1;
-            border-radius: 12px;
-            padding: 12px 14px;
-            margin-bottom: 8px;
-        }
-        .nav-link.active, .nav-link:hover {
-            background: rgba(14,165,233,0.12);
-            color: #e2e8f0;
-            border: 1px solid rgba(14,165,233,0.35);
-        }
-        .content { padding: 36px; }
-        .glass {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 18px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.35);
-        }
         .form-control, .form-select {
             background: rgba(255,255,255,0.12);
             border: 1px solid rgba(255,255,255,0.32);
@@ -186,16 +122,6 @@ if (!$user) {
             background: rgba(255,255,255,0.18);
             color: #ffffff;
         }
-        .btn-brand {
-            background: linear-gradient(135deg, #0ea5e9, #22d3ee);
-            color: #0b1221;
-            font-weight: 700;
-            border: none;
-        }
-        .btn-brand:hover {
-            background: linear-gradient(135deg, #0aa1e5, #1bcde7);
-            color: #0b1221;
-        }
         .helper-text { color: #cbd5e1; }
         label { color: #e2e8f0; }
         .form-text, .invalid-feedback { color: #cbd5e1; }
@@ -203,32 +129,10 @@ if (!$user) {
 </head>
 <body>
 <div class="layout">
-    <aside class="sidebar">
-        <div class="d-flex align-items-center justify-content-between mb-4">
-            <span class="brand">Prefeitura Digital</span>
-        </div>
-        <nav class="nav flex-column">
-            <a class="nav-link <?php echo $currentPage === 'home' ? 'active' : ''; ?>" href="home.php">Início</a>
-            <a class="nav-link <?php echo $currentPage === 'services' ? 'active' : ''; ?>" href="services.php">Serviços</a>
-            <a class="nav-link <?php echo $currentPage === 'requests' ? 'active' : ''; ?>" href="requests.php">Meus protocolos</a>
-            <a class="nav-link <?php echo $currentPage === 'profile' ? 'active' : ''; ?>" aria-current="page" href="profile.php">Meu perfil</a>
-            <?php if (in_array($userType, ['gestor', 'admin'], true)): ?>
-                <a class="nav-link <?php echo $currentPage === 'tickets' ? 'active' : ''; ?>" href="tickets.php">Chamados</a>
-                <a class="nav-link <?php echo $currentPage === 'completed' ? 'active' : ''; ?>" href="completed.php">Concluídos</a>
-            <?php endif; ?>
-            <?php if (in_array($userType, ['gestor', 'admin'], true)): ?>
-                <a class="nav-link <?php echo $currentPage === 'users' ? 'active' : ''; ?>" href="users.php">Gestão de usuários</a>
-            <?php endif; ?>
-            <a class="nav-link" href="logout.php">Sair</a>
-        </nav>
-    </aside>
+    <?php require __DIR__ . '/app/partials/sidebar.php'; ?>
 
     <main class="content">
-        <?php if ($flash): ?>
-            <div class="alert alert-<?php echo htmlspecialchars($flash['type']); ?> mb-3">
-                <?php echo htmlspecialchars($flash['message']); ?>
-            </div>
-        <?php endif; ?>
+        <?php renderFlash(); ?>
 
         <div class="glass p-4 mb-4">
             <p class="text-uppercase small text-info mb-1">Meu perfil</p>

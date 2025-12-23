@@ -1,5 +1,5 @@
 <?php
-require __DIR__ . '/config.php';
+require __DIR__ . '/app/bootstrap.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: index.php#login');
@@ -17,9 +17,7 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $password === '') {
 
 try {
     $pdo = getPDO();
-    $stmt = $pdo->prepare('SELECT * FROM users WHERE email = :email LIMIT 1');
-    $stmt->execute(['email' => $email]);
-    $user = $stmt->fetch();
+    $user = findUserByEmail($pdo, $email);
 
     if (!$user || !password_verify($password, $user['password_hash'])) {
         flash('danger', 'Credenciais inválidas.');

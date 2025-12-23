@@ -1,5 +1,5 @@
 <?php
-require __DIR__ . '/config.php';
+require __DIR__ . '/app/bootstrap.php';
 
 // Finaliza sessão e redireciona para o login.
 session_unset();

@@ -1,5 +1,5 @@
 <?php
-require __DIR__ . '/config.php';
+require __DIR__ . '/app/bootstrap.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: index.php#register');
@@ -66,9 +66,7 @@ if ($errors) {
 try {
     $pdo = getPDO();
 
-    $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :email OR cpf = :cpf LIMIT 1');
-    $stmt->execute(['email' => $email, 'cpf' => $cpfDigits]);
-    $existing = $stmt->fetch();
+    $existing = findUserByEmailOrCpf($pdo, $email, $cpfDigits);
     if ($existing) {
         flash('danger', 'E-mail ou CPF já cadastrado.');
         header('Location: index.php#register');
@@ -79,12 +77,7 @@ try {
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
     $cepFormatted = substr($zipDigits, 0, 5) . '-' . substr($zipDigits, 5);
 
-    $insert = $pdo->prepare('
-        INSERT INTO users (name, phone, email, cpf, address, neighborhood, zip, user_type, password_hash, verification_token, created_at, updated_at)
-        VALUES (:name, :phone, :email, :cpf, :address, :neighborhood, :zip, :user_type, :password_hash, :token, NOW(), NOW())
-    ');
-
-    $insert->execute([
+    createUser($pdo, [
         'name' => $name,
         'phone' => $phoneDigits,
         'email' => $email,

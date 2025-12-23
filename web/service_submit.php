@@ -1,18 +1,14 @@
 <?php
-require __DIR__ . '/config.php';
+require __DIR__ . '/app/bootstrap.php';
 
-if (!isset($_SESSION['user_id'])) {
-    flash('danger', 'Faça login para enviar solicitações.');
-    header('Location: index.php#login');
-    exit;
-}
+requireLogin('Faça login para enviar solicitações.');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: services.php');
     exit;
 }
 
-$userId = (int) $_SESSION['user_id'];
+$userId = (int) currentUserId();
 $serviceName = trim($_POST['service_name'] ?? '');
 $problemType = trim($_POST['problem_type'] ?? '');
 $address = trim($_POST['address'] ?? '');
@@ -79,15 +75,7 @@ try {
     $pdo = getPDO();
 
     // Dados do usuário para notificação
-    $stmtUser = $pdo->prepare('SELECT name, email, phone FROM users WHERE id = :id LIMIT 1');
-    $stmtUser->execute(['id' => $userId]);
-    $user = $stmtUser->fetch();
-
-    $stmt = $pdo->prepare('
-        INSERT INTO service_requests
-        (user_id, service_name, problem_type, address, latitude, longitude, duration, evidence_files, created_at, updated_at)
-        VALUES (:user_id, :service_name, :problem_type, :address, :latitude, :longitude, :duration, :evidence_files, NOW(), NOW())
-    ');
+    $user = findUserContactById($pdo, $userId);
 
     $cepFormatted = substr($zipDigits, 0, 5) . '-' . substr($zipDigits, 5);
     $addressFull = $address;
@@ -98,7 +86,7 @@ try {
         $addressFull .= ' | CEP: ' . $cepFormatted;
     }
 
-    $stmt->execute([
+    createServiceRequest($pdo, [
         'user_id' => $userId,
         'service_name' => $serviceName,
         'problem_type' => $problemType,

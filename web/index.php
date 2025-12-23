@@ -1,11 +1,10 @@
 <?php
-require __DIR__ . '/config.php';
+require __DIR__ . '/app/bootstrap.php';
 
 if (isset($_SESSION['user_id'])) {
     header('Location: home.php');
     exit;
 }
-$flash = consumeFlash();
 ?>
 <!doctype html>
 <html lang="pt-BR">
@@ -112,11 +111,7 @@ $flash = consumeFlash();
                     <button type="button" class="btn btn-ghost" data-target="register">Criar conta</button>
                 </div>
 
-                <?php if ($flash): ?>
-                    <div class="alert alert-<?php echo htmlspecialchars($flash['type']); ?> mb-3">
-                        <?php echo htmlspecialchars($flash['message']); ?>
-                    </div>
-                <?php endif; ?>
+                <?php renderFlash(); ?>
 
                 <form id="login-form" method="POST" action="login.php" class="needs-validation" novalidate>
                     <div class="mb-3">

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/../config.php';
+require __DIR__ . '/../app/bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -31,9 +31,7 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $password === '') {
 
 try {
     $pdo = getPDO();
-    $stmt = $pdo->prepare('SELECT * FROM users WHERE email = :email LIMIT 1');
-    $stmt->execute(['email' => $email]);
-    $user = $stmt->fetch();
+    $user = findUserByEmail($pdo, $email);
 
     if (!$user || !password_verify($password, $user['password_hash'])) {
         http_response_code(401);
