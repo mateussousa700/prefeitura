@@ -8,6 +8,7 @@ const DB_NAME = 'prefeitura_app';
 const DB_USER = 'root';
 const DB_PASS = '';
 
+
 // URL base usada nos links de confirmação enviados por e-mail e WhatsApp.
 const BASE_URL = 'http://localhost/prefeitura/web';
 
