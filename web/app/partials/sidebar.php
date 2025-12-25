@@ -21,3 +21,51 @@ $isManager = in_array($userType, $managerRoles, true);
         <a class="nav-link" href="logout.php">Sair</a>
     </nav>
 </aside>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const layout = document.querySelector('.layout');
+        if (!layout) {
+            return;
+        }
+
+        const storageKey = 'prefeitura_fullscreen';
+        const body = document.body;
+
+        const setFullscreen = (enabled) => {
+            body.classList.toggle('is-fullscreen', enabled);
+            if (enabled) {
+                localStorage.setItem(storageKey, '1');
+            } else {
+                localStorage.setItem(storageKey, '0');
+            }
+        };
+
+        const existingToggle = document.querySelector('.fullscreen-toggle');
+        const toggleButton = existingToggle || document.createElement('button');
+        if (!existingToggle) {
+            toggleButton.type = 'button';
+            toggleButton.className = 'fullscreen-toggle';
+            toggleButton.textContent = 'Mostrar menu';
+            toggleButton.setAttribute('aria-label', 'Mostrar menu lateral');
+            toggleButton.setAttribute('title', 'Mostrar menu lateral');
+            toggleButton.addEventListener('click', () => setFullscreen(false));
+            body.appendChild(toggleButton);
+        }
+
+        const navLinks = document.querySelectorAll('.sidebar .nav-link');
+        navLinks.forEach((link) => {
+            const href = link.getAttribute('href') || '';
+            if (href === 'logout.php') {
+                return;
+            }
+            link.addEventListener('click', () => {
+                setFullscreen(true);
+            });
+        });
+
+        if (localStorage.getItem(storageKey) === '1') {
+            setFullscreen(true);
+        }
+    });
+</script>

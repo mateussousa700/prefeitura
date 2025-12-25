@@ -127,6 +127,9 @@ if (isset($_SESSION['user_id'])) {
                         </div>
                         <div class="invalid-feedback">Senha é obrigatória.</div>
                     </div>
+                    <div class="d-flex justify-content-end mb-3">
+                        <a class="helper-text text-decoration-none" href="forgot_password.php">Esqueci minha senha</a>
+                    </div>
                     <button type="submit" class="btn btn-brand w-100 py-2">Entrar</button>
                 </form>
 

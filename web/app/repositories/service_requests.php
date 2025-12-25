@@ -50,6 +50,7 @@ function listTickets(PDO $pdo, ?string $serviceFilter): array
 {
     $sql = '
         SELECT sr.id, sr.service_name, sr.problem_type, sr.status, sr.created_at, sr.evidence_files,
+               sr.address, sr.latitude, sr.longitude,
                u.name AS user_name, u.email AS user_email, u.phone AS user_phone
         FROM service_requests sr
         INNER JOIN users u ON u.id = sr.user_id

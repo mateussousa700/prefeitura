@@ -58,6 +58,12 @@ function updateUserType(PDO $pdo, int $id, string $type): void
     $stmt->execute(['type' => $type, 'id' => $id]);
 }
 
+function updateUserPassword(PDO $pdo, int $id, string $passwordHash): void
+{
+    $stmt = $pdo->prepare('UPDATE users SET password_hash = :hash, updated_at = NOW() WHERE id = :id');
+    $stmt->execute(['hash' => $passwordHash, 'id' => $id]);
+}
+
 function createUser(PDO $pdo, array $data): int
 {
     $stmt = $pdo->prepare('
