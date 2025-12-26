@@ -153,6 +153,11 @@ function linkChamadoToAtivo(PDO $pdo, int $chamadoId, int $ativoId, int $usuario
             'usuario_id' => $usuarioId,
         ]);
 
+        logServiceRequestAudit($pdo, $chamadoId, $usuarioId, 'CHAMADO_ATIVO_VINCULADO', [
+            'ativo_anterior_id' => $currentAtivo,
+            'ativo_novo_id' => $ativoId,
+        ]);
+
         if ($useTransaction) {
             $pdo->commit();
         }
