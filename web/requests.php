@@ -75,14 +75,15 @@ try {
                         <thead>
                         <tr>
                             <th>#</th>
-                            <th>Serviço</th>
-                            <th>Problema</th>
+                            <th>Tipo</th>
+                            <th>Subtipo</th>
                             <th>Evidências</th>
                             <th>Status</th>
                             <th>Data</th>
                         </tr>
                         </thead>
                         <tbody>
+                        <?php $statusOptions = listServiceStatusOptions(); ?>
                         <?php foreach ($requests as $req): ?>
                             <?php
                             $files = parseEvidenceFiles($req['evidence_files'] ?? null);
@@ -93,6 +94,8 @@ try {
                                 : 'Nenhuma imagem';
                             $tooltipAttr = htmlspecialchars($tooltipHtml, ENT_QUOTES);
                             $badgeClass = statusBadgeClass((string)$req['status']);
+                            $statusKey = normalizeServiceStatus((string)$req['status']);
+                            $statusLabel = $statusOptions[$statusKey] ?? (string)$req['status'];
                             ?>
                             <tr>
                                 <td>#<?php echo htmlspecialchars($req['id']); ?></td>
@@ -115,7 +118,7 @@ try {
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <span class="badge <?php echo $badgeClass; ?> text-uppercase"><?php echo htmlspecialchars($req['status']); ?></span>
+                                    <span class="badge <?php echo $badgeClass; ?> text-uppercase"><?php echo htmlspecialchars($statusLabel); ?></span>
                                 </td>
                                 <td><?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($req['created_at']))); ?></td>
                             </tr>

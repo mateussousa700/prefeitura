@@ -10,10 +10,14 @@ $userType = currentUserType();
 $pdo = getPDO();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireValidCsrfToken($_POST['csrf_token'] ?? null, 'profile.php');
+
     $name = trim($_POST['name'] ?? '');
     $phone = normalizeDigits($_POST['phone'] ?? '');
     $email = trim($_POST['email'] ?? '');
+    $personType = trim($_POST['person_type'] ?? '');
     $cpf = normalizeDigits($_POST['cpf'] ?? '');
+    $cnpj = normalizeDigits($_POST['cnpj'] ?? '');
     $address = trim($_POST['address'] ?? '');
     $neighborhood = trim($_POST['neighborhood'] ?? '');
     $zip = trim($_POST['zip'] ?? '');
@@ -31,8 +35,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'E-mail inválido.';
     }
-    if ($cpf === '' || strlen($cpf) !== 11) {
-        $errors[] = 'CPF deve conter 11 dígitos.';
+    if (!in_array($personType, ['pf', 'pj'], true)) {
+        $errors[] = 'Tipo de pessoa inválido.';
+    } elseif ($personType === 'pf') {
+        if (!isValidCpf($cpf)) {
+            $errors[] = 'CPF inválido.';
+        }
+        $cnpj = null;
+    } else {
+        if (!isValidCnpj($cnpj)) {
+            $errors[] = 'CNPJ inválido.';
+        }
+        $cpf = null;
     }
     if ($address === '') {
         $errors[] = 'Endereço é obrigatório.';
@@ -53,8 +67,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Unicidade de e-mail/CPF
     if (!$errors) {
-        if (findOtherUserByEmailOrCpf($pdo, $email, $cpf, $userId)) {
-            $errors[] = 'E-mail ou CPF já está em uso por outro usuário.';
+        if (findOtherUserByEmailOrCpf($pdo, $email, $cpf, $userId, $cnpj)) {
+            $errors[] = 'E-mail, CPF ou CNPJ já está em uso por outro usuário.';
         }
     }
 
@@ -70,7 +84,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'name' => $name,
         'phone' => $phone,
         'email' => $email,
+        'person_type' => $personType,
         'cpf' => $cpf,
+        'cnpj' => $cnpj,
         'address' => $address,
         'neighborhood' => $neighborhood,
         'zip' => $zipFormatted,
@@ -94,6 +110,8 @@ if (!$user) {
     header('Location: home.php');
     exit;
 }
+
+$isPf = ($user['person_type'] ?? 'pf') !== 'pj';
 ?>
 <!doctype html>
 <html lang="pt-BR">
@@ -135,37 +153,62 @@ if (!$user) {
         <?php renderFlash(); ?>
 
         <div class="glass p-4 mb-4">
-            <p class="text-uppercase small text-info mb-1">Meu perfil</p>
-            <h2 class="fw-bold mb-2">Atualize seus dados</h2>
-            <p class="mb-0 helper-text">Mantenha contato, endereço e senha sempre atualizados.</p>
+            <div class="panel-header flex-wrap">
+                <div>
+                    <p class="text-uppercase small text-info mb-1">Meu perfil</p>
+                    <h2 class="panel-title">Atualize seus dados</h2>
+                    <p class="panel-subtitle">Mantenha contato, endereço e senha sempre atualizados.</p>
+                </div>
+            </div>
         </div>
 
         <div class="glass p-4">
-            <form method="POST" class="row g-3 needs-validation" novalidate>
+            <form method="POST" class="row g-3 needs-validation form-clarity" novalidate>
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrfToken()); ?>">
                 <div class="col-md-6">
-                    <label for="name" class="form-label">Nome completo</label>
+                    <label for="name" class="form-label">Nome completo / Razão social</label>
                     <input type="text" class="form-control" id="name" name="name" required value="<?php echo htmlspecialchars($user['name']); ?>">
                     <div class="invalid-feedback">Informe seu nome.</div>
+                    <span class="form-hint">Evite abreviações para facilitar a validação.</span>
+                </div>
+                <div class="col-md-6">
+                    <label for="person_type" class="form-label">Tipo de pessoa</label>
+                    <select class="form-select" id="person_type" name="person_type" required>
+                        <option value="pf" <?php echo ($user['person_type'] ?? 'pf') === 'pf' ? 'selected' : ''; ?>>Pessoa física (CPF)</option>
+                        <option value="pj" <?php echo ($user['person_type'] ?? 'pf') === 'pj' ? 'selected' : ''; ?>>Pessoa jurídica (CNPJ)</option>
+                    </select>
+                    <div class="invalid-feedback">Selecione o tipo de pessoa.</div>
+                    <span class="form-hint">Escolha o documento que será validado.</span>
                 </div>
                 <div class="col-md-6">
                     <label for="phone" class="form-label">Telefone/WhatsApp</label>
                     <input type="tel" class="form-control" id="phone" name="phone" required value="<?php echo htmlspecialchars($user['phone']); ?>">
                     <div class="invalid-feedback">Informe o telefone.</div>
+                    <span class="form-hint">Usaremos para contato sobre protocolos.</span>
                 </div>
                 <div class="col-md-6">
                     <label for="email" class="form-label">E-mail</label>
                     <input type="email" class="form-control" id="email" name="email" required value="<?php echo htmlspecialchars($user['email']); ?>">
                     <div class="invalid-feedback">E-mail inválido.</div>
+                    <span class="form-hint">Precisa estar ativo para receber notificações.</span>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6<?php echo $isPf ? '' : ' d-none'; ?>" id="cpf-field">
                     <label for="cpf" class="form-label">CPF</label>
-                    <input type="text" class="form-control" id="cpf" name="cpf" required value="<?php echo htmlspecialchars($user['cpf']); ?>">
+                    <input type="text" class="form-control" id="cpf" name="cpf" <?php echo $isPf ? 'required' : ''; ?> value="<?php echo htmlspecialchars($user['cpf'] ?? ''); ?>">
                     <div class="invalid-feedback">CPF é obrigatório.</div>
+                    <span class="form-hint">Digite apenas o CPF do titular.</span>
+                </div>
+                <div class="col-md-6<?php echo $isPf ? ' d-none' : ''; ?>" id="cnpj-field">
+                    <label for="cnpj" class="form-label">CNPJ</label>
+                    <input type="text" class="form-control" id="cnpj" name="cnpj" <?php echo $isPf ? '' : 'required'; ?> value="<?php echo htmlspecialchars($user['cnpj'] ?? ''); ?>">
+                    <div class="invalid-feedback">CNPJ é obrigatório.</div>
+                    <span class="form-hint">Informe o CNPJ da instituição.</span>
                 </div>
                 <div class="col-md-12">
                     <label for="address" class="form-label">Endereço (rua e número)</label>
                     <input type="text" class="form-control" id="address" name="address" required value="<?php echo htmlspecialchars($user['address']); ?>">
                     <div class="invalid-feedback">Informe o endereço.</div>
+                    <span class="form-hint">Inclua complemento se necessário.</span>
                 </div>
                 <div class="col-md-7">
                     <label for="neighborhood" class="form-label">Bairro (Fortaleza)</label>
@@ -173,19 +216,23 @@ if (!$user) {
                         <option value="">Carregando bairros...</option>
                     </select>
                     <div class="invalid-feedback">Selecione um bairro.</div>
+                    <span class="form-hint">Selecione o bairro correto.</span>
                 </div>
                 <div class="col-md-5">
                     <label for="zip" class="form-label">CEP</label>
                     <input type="text" class="form-control" id="zip" name="zip" required inputmode="numeric" pattern="\d{5}-?\d{3}" value="<?php echo htmlspecialchars($user['zip']); ?>">
                     <div class="invalid-feedback">Informe um CEP válido.</div>
+                    <span class="form-hint">CEP com 8 dígitos.</span>
                 </div>
                 <div class="col-md-6">
                     <label for="new_password" class="form-label">Nova senha (opcional)</label>
                     <input type="password" class="form-control" id="new_password" name="new_password" minlength="8" placeholder="Mínimo 8 caracteres">
+                    <span class="form-hint">Deixe em branco para manter a senha atual.</span>
                 </div>
                 <div class="col-md-6">
                     <label for="confirm_password" class="form-label">Confirmar nova senha</label>
                     <input type="password" class="form-control" id="confirm_password" name="confirm_password" minlength="8" placeholder="Repita a nova senha">
+                    <span class="form-hint">Repita exatamente a nova senha.</span>
                 </div>
                 <div class="col-12 d-flex justify-content-end gap-2">
                     <a class="btn btn-secondary" href="home.php">Cancelar</a>
@@ -202,6 +249,11 @@ if (!$user) {
     const zipInput = document.getElementById('zip');
     const addressInput = document.getElementById('address');
     const currentNeighborhood = "<?php echo htmlspecialchars($user['neighborhood']); ?>";
+    const personTypeSelect = document.getElementById('person_type');
+    const cpfField = document.getElementById('cpf-field');
+    const cnpjField = document.getElementById('cnpj-field');
+    const cpfInput = document.getElementById('cpf');
+    const cnpjInput = document.getElementById('cnpj');
 
     const fallbackNeighborhoods = [
         'Aldeota', 'Barra do Ceará', 'Benfica', 'Cidade dos Funcionários', 'Cocó',
@@ -215,6 +267,14 @@ if (!$user) {
         .map(item => item.trim())
         .filter(item => item.length > 0)
         .sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+
+    function togglePersonFields() {
+        const isPf = personTypeSelect?.value !== 'pj';
+        cpfField?.classList.toggle('d-none', !isPf);
+        cnpjField?.classList.toggle('d-none', isPf);
+        if (cpfInput) cpfInput.required = isPf;
+        if (cnpjInput) cnpjInput.required = !isPf;
+    }
 
     function setNeighborhoodValue(name) {
         if (!neighborhoodSelect || !name) return;
@@ -263,6 +323,8 @@ if (!$user) {
         }
     }
     loadNeighborhoods();
+    togglePersonFields();
+    personTypeSelect?.addEventListener('change', togglePersonFields);
 
     function formatCep(value) {
         const digits = value.replace(/\D/g, '').slice(0, 8);

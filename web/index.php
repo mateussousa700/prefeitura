@@ -14,6 +14,7 @@ if (isset($_SESSION['user_id'])) {
     <title>Prefeitura Digital - Acesso</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="assets/css/app.css" rel="stylesheet">
     <style>
         :root {
             --brand-bg: #0f172a;
@@ -114,10 +115,18 @@ if (isset($_SESSION['user_id'])) {
                 <?php renderFlash(); ?>
 
                 <form id="login-form" method="POST" action="login.php" class="needs-validation" novalidate>
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrfToken()); ?>">
+                    <div class="panel-header">
+                        <div>
+                            <h5 class="panel-title">Entrar</h5>
+                            <p class="panel-subtitle">Use o e-mail verificado para acessar o painel.</p>
+                        </div>
+                    </div>
                     <div class="mb-3">
                         <label for="login-email" class="form-label">E-mail</label>
                         <input type="email" class="form-control" id="login-email" name="email" required placeholder="voce@exemplo.com">
                         <div class="invalid-feedback">Informe um e-mail válido.</div>
+                        <div class="form-hint">Use o mesmo e-mail cadastrado.</div>
                     </div>
                     <div class="mb-3">
                         <label for="login-password" class="form-label">Senha</label>
@@ -126,38 +135,66 @@ if (isset($_SESSION['user_id'])) {
                             <button class="btn btn-ghost" type="button" id="toggle-login-password">Ver</button>
                         </div>
                         <div class="invalid-feedback">Senha é obrigatória.</div>
+                        <div class="form-hint">Mínimo de 8 caracteres.</div>
                     </div>
                     <div class="d-flex justify-content-end mb-3">
                         <a class="helper-text text-decoration-none" href="forgot_password.php">Esqueci minha senha</a>
                     </div>
-                    <button type="submit" class="btn btn-brand w-100 py-2">Entrar</button>
+                    <button type="submit" class="btn btn-brand w-100 py-2">Entrar no painel</button>
                 </form>
 
                 <form id="register-form" method="POST" action="register.php" class="needs-validation d-none" novalidate>
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrfToken()); ?>">
+                    <div class="panel-header">
+                        <div>
+                            <h5 class="panel-title">Criar conta</h5>
+                            <p class="panel-subtitle">Leva poucos minutos e garante acesso seguro.</p>
+                        </div>
+                    </div>
                     <div class="mb-3">
-                        <label for="name" class="form-label">Nome completo</label>
+                        <label for="name" class="form-label">Nome completo / Razão social</label>
                         <input type="text" class="form-control" id="name" name="name" required placeholder="Seu nome">
                         <div class="invalid-feedback">Informe seu nome.</div>
+                        <div class="form-hint">Use o nome que aparece nos documentos oficiais.</div>
                     </div>
                     <div class="mb-3">
                         <label for="phone" class="form-label">Telefone/WhatsApp</label>
                         <input type="tel" class="form-control" id="phone" name="phone" required placeholder="(DDD) 9XXXX-XXXX">
                         <div class="invalid-feedback">Informe um número de contato.</div>
+                        <div class="form-hint">Usaremos para enviar a confirmação do cadastro.</div>
                     </div>
                     <div class="mb-3">
                         <label for="email" class="form-label">E-mail</label>
                         <input type="email" class="form-control" id="email" name="email" required placeholder="voce@exemplo.com">
                         <div class="invalid-feedback">Informe um e-mail válido.</div>
+                        <div class="form-hint">A confirmação também é enviada por e-mail.</div>
                     </div>
                     <div class="mb-3">
+                        <label for="person_type" class="form-label">Tipo de pessoa</label>
+                        <select class="form-select" id="person_type" name="person_type" required>
+                            <option value="pf" selected>Pessoa física (CPF)</option>
+                            <option value="pj">Pessoa jurídica (CNPJ)</option>
+                        </select>
+                        <div class="invalid-feedback">Selecione o tipo de pessoa.</div>
+                        <div class="form-hint">Escolha o documento que será validado.</div>
+                    </div>
+                    <div class="mb-3" id="cpf-field">
                         <label for="cpf" class="form-label">CPF</label>
                         <input type="text" class="form-control" id="cpf" name="cpf" required placeholder="000.000.000-00">
                         <div class="invalid-feedback">CPF é obrigatório.</div>
+                        <div class="form-hint">Informe apenas o CPF do titular.</div>
+                    </div>
+                    <div class="mb-3 d-none" id="cnpj-field">
+                        <label for="cnpj" class="form-label">CNPJ</label>
+                        <input type="text" class="form-control" id="cnpj" name="cnpj" placeholder="00.000.000/0000-00">
+                        <div class="invalid-feedback">CNPJ é obrigatório.</div>
+                        <div class="form-hint">Informe o CNPJ da instituição.</div>
                     </div>
                     <div class="mb-3">
                         <label for="address" class="form-label">Endereço (rua e número)</label>
                         <input type="text" class="form-control" id="address" name="address" required placeholder="Rua Exemplo, 123 - apartamento, bloco">
                         <div class="invalid-feedback">Informe a rua e número.</div>
+                        <div class="form-hint">Quanto mais completo, melhor a validação.</div>
                     </div>
                     <div class="row g-3">
                         <div class="col-md-7">
@@ -166,11 +203,13 @@ if (isset($_SESSION['user_id'])) {
                                 <option value="">Carregando bairros...</option>
                             </select>
                             <div class="invalid-feedback">Selecione um bairro.</div>
+                            <div class="form-hint">Selecione o bairro onde você mora.</div>
                         </div>
                         <div class="col-md-5">
                             <label for="zip" class="form-label">CEP</label>
                             <input type="text" class="form-control" id="zip" name="zip" required pattern="\d{5}-?\d{3}" inputmode="numeric" placeholder="00000-000">
                             <div class="invalid-feedback">Informe um CEP válido (8 dígitos).</div>
+                            <div class="form-hint">Digite apenas números se preferir.</div>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -180,6 +219,7 @@ if (isset($_SESSION['user_id'])) {
                             <button class="btn btn-ghost" type="button" id="toggle-password">Ver</button>
                         </div>
                         <div class="invalid-feedback">Crie uma senha com pelo menos 8 caracteres.</div>
+                        <div class="form-hint">Use letras e números para aumentar a segurança.</div>
                     </div>
                     <div class="mb-3">
                         <label for="password_confirmation" class="form-label">Confirmar senha</label>
@@ -188,8 +228,9 @@ if (isset($_SESSION['user_id'])) {
                             <button class="btn btn-ghost" type="button" id="toggle-password-confirm">Ver</button>
                         </div>
                         <div class="invalid-feedback">Confirme sua senha.</div>
+                        <div class="form-hint">Repita exatamente a senha escolhida.</div>
                     </div>
-                    <button type="submit" class="btn btn-brand w-100 py-2">Criar conta</button>
+                    <button type="submit" class="btn btn-brand w-100 py-2">Criar conta e confirmar</button>
                 </form>
             </div>
         </div>
@@ -203,6 +244,11 @@ if (isset($_SESSION['user_id'])) {
     const registerForm = document.getElementById('register-form');
     const addressInput = document.getElementById('address');
     const zipInput = document.getElementById('zip');
+    const personTypeSelect = document.getElementById('person_type');
+    const cpfField = document.getElementById('cpf-field');
+    const cnpjField = document.getElementById('cnpj-field');
+    const cpfInput = document.getElementById('cpf');
+    const cnpjInput = document.getElementById('cnpj');
     const toggleLoginPasswordBtn = document.getElementById('toggle-login-password');
     const togglePasswordBtn = document.getElementById('toggle-password');
     const togglePasswordConfirmBtn = document.getElementById('toggle-password-confirm');
@@ -231,6 +277,17 @@ if (isset($_SESSION['user_id'])) {
     toggleLoginPasswordBtn?.addEventListener('click', () => togglePasswordVisibility(loginPasswordInput, toggleLoginPasswordBtn));
     togglePasswordBtn?.addEventListener('click', () => togglePasswordVisibility(passwordInput, togglePasswordBtn));
     togglePasswordConfirmBtn?.addEventListener('click', () => togglePasswordVisibility(passwordConfirmInput, togglePasswordConfirmBtn));
+
+    const togglePersonFields = () => {
+        const isPf = personTypeSelect?.value !== 'pj';
+        cpfField?.classList.toggle('d-none', !isPf);
+        cnpjField?.classList.toggle('d-none', isPf);
+        if (cpfInput) cpfInput.required = isPf;
+        if (cnpjInput) cnpjInput.required = !isPf;
+    };
+
+    personTypeSelect?.addEventListener('change', togglePersonFields);
+    togglePersonFields();
 
     // Bairro via API Cep.Ia (Fortaleza)
     const neighborhoodSelect = document.getElementById('neighborhood');

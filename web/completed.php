@@ -8,20 +8,15 @@ $userType = currentUserType();
 
 requireRoles(['gestor', 'admin']);
 
-$serviceOptions = [
-    '' => 'Todos os serviços',
-    'Iluminação pública' => 'Iluminação pública',
-    'Limpeza' => 'Limpeza',
-    'Tributos' => 'Tributos',
-    'Pavimentação' => 'Pavimentação',
-];
-$filterService = trim($_GET['service'] ?? '');
+$serviceTypes = [];
+$filterTypeId = (int)($_GET['type_id'] ?? 0);
 
 $completed = [];
 $listError = null;
 try {
     $pdo = getPDO();
-    $completed = listCompletedRequests($pdo, $filterService !== '' && array_key_exists($filterService, $serviceOptions) ? $filterService : null);
+    $serviceTypes = listServiceTypes($pdo);
+    $completed = listCompletedRequests($pdo, $filterTypeId > 0 ? $filterTypeId : null);
 } catch (Throwable $e) {
     $listError = 'Erro ao carregar concluídos: ' . $e->getMessage();
 }
@@ -66,11 +61,12 @@ try {
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <form method="GET" class="d-flex align-items-center gap-2">
-                        <label class="form-label mb-0 text-secondary small" for="service">Filtrar por serviço</label>
-                        <select name="service" id="service" class="form-select form-select-sm">
-                            <?php foreach ($serviceOptions as $key => $label): ?>
-                                <option value="<?php echo htmlspecialchars($key); ?>" <?php echo $filterService === $key ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($label); ?>
+                        <label class="form-label mb-0 text-secondary small" for="type_id">Filtrar por tipo</label>
+                        <select name="type_id" id="type_id" class="form-select form-select-sm">
+                            <option value="0">Todos</option>
+                            <?php foreach ($serviceTypes as $type): ?>
+                                <option value="<?php echo (int)$type['id']; ?>" <?php echo $filterTypeId === (int)$type['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($type['name']); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -89,8 +85,8 @@ try {
                         <thead>
                         <tr>
                             <th>#</th>
-                            <th>Serviço</th>
-                            <th>Problema</th>
+                            <th>Tipo</th>
+                            <th>Subtipo</th>
                             <th>Usuário</th>
                             <th>Contato</th>
                             <th>Evidência</th>
@@ -99,6 +95,7 @@ try {
                         </tr>
                         </thead>
                         <tbody>
+                        <?php $statusOptions = listServiceStatusOptions(); ?>
                         <?php foreach ($completed as $t): ?>
                             <?php
                             $files = parseEvidenceFiles($t['evidence_files'] ?? null);
@@ -109,6 +106,8 @@ try {
                                 : 'Nenhuma imagem';
                             $tooltipAttr = htmlspecialchars($tooltipHtml, ENT_QUOTES);
                             $badgeClass = statusBadgeClass((string)$t['status']);
+                            $statusKey = normalizeServiceStatus((string)$t['status']);
+                            $statusLabel = $statusOptions[$statusKey] ?? (string)$t['status'];
                             ?>
                             <tr>
                                 <td>#<?php echo htmlspecialchars($t['id']); ?></td>
@@ -138,7 +137,7 @@ try {
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <span class="badge <?php echo $badgeClass; ?> text-uppercase"><?php echo htmlspecialchars($t['status']); ?></span>
+                                    <span class="badge <?php echo $badgeClass; ?> text-uppercase"><?php echo htmlspecialchars($statusLabel); ?></span>
                                 </td>
                                 <td><?php echo htmlspecialchars(date('d/m/Y H:i', strtotime($t['created_at']))); ?></td>
                             </tr>

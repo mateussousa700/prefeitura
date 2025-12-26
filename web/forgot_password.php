@@ -84,6 +84,7 @@ if (isset($_SESSION['user_id'])) {
                 <?php renderFlash(); ?>
 
                 <form method="POST" action="forgot_password_submit.php" class="needs-validation" novalidate>
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrfToken()); ?>">
                     <div class="mb-3">
                         <label for="email" class="form-label">E-mail</label>
                         <input type="email" class="form-control" id="email" name="email" required placeholder="voce@exemplo.com">

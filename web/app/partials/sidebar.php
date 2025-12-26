@@ -1,7 +1,7 @@
 <?php
 $currentPage = $currentPage ?? '';
 $userType = $userType ?? 'populacao';
-$managerRoles = ['gestor', 'admin'];
+$managerRoles = ['gestor', 'admin', 'gestor_global'];
 $isManager = in_array($userType, $managerRoles, true);
 ?>
 <aside class="sidebar">
@@ -14,8 +14,11 @@ $isManager = in_array($userType, $managerRoles, true);
         <a class="nav-link <?php echo $currentPage === 'requests' ? 'active' : ''; ?>" href="requests.php">Meus protocolos</a>
         <a class="nav-link <?php echo $currentPage === 'profile' ? 'active' : ''; ?>" href="profile.php">Meu perfil</a>
         <?php if ($isManager): ?>
+            <a class="nav-link <?php echo $currentPage === 'dashboard' ? 'active' : ''; ?>" href="dashboard.php">Dashboard</a>
+            <a class="nav-link <?php echo $currentPage === 'relatorios' ? 'active' : ''; ?>" href="relatorios.php">Relatórios</a>
             <a class="nav-link <?php echo $currentPage === 'tickets' ? 'active' : ''; ?>" href="tickets.php">Chamados</a>
             <a class="nav-link <?php echo $currentPage === 'completed' ? 'active' : ''; ?>" href="completed.php">Concluídos</a>
+            <a class="nav-link <?php echo $currentPage === 'service_types' ? 'active' : ''; ?>" href="service_types.php">Tipos de chamado</a>
             <a class="nav-link <?php echo $currentPage === 'users' ? 'active' : ''; ?>" href="users.php">Gestão de usuários</a>
         <?php endif; ?>
         <a class="nav-link" href="logout.php">Sair</a>

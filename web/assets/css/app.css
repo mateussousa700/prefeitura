@@ -121,6 +121,32 @@ body.is-fullscreen .fullscreen-toggle {
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
 }
 
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.panel-title {
+    margin: 0;
+    font-weight: 600;
+}
+
+.panel-subtitle {
+    margin: 2px 0 0;
+    font-size: 0.86rem;
+    color: #94a3b8;
+}
+
+.form-hint {
+    font-size: 0.78rem;
+    color: #94a3b8;
+}
+
 .btn-brand {
     background: linear-gradient(135deg, #0ea5e9, #22d3ee);
     color: #0b1221;
@@ -131,4 +157,61 @@ body.is-fullscreen .fullscreen-toggle {
 .btn-brand:hover {
     background: linear-gradient(135deg, #0aa1e5, #1bcde7);
     color: #0b1221;
+}
+
+.form-clarity .form-label {
+    color: #e2e8f0;
+    font-weight: 600;
+    font-size: 0.92rem;
+    margin-bottom: 0.35rem;
+}
+
+.form-clarity .form-text {
+    color: #94a3b8;
+    font-size: 0.82rem;
+}
+
+.form-clarity .form-control,
+.form-clarity .form-select,
+.form-clarity textarea {
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid rgba(148, 163, 184, 0.55);
+    color: #f8fafc;
+    min-height: 44px;
+    padding: 0.6rem 0.85rem;
+    box-shadow: inset 0 1px 2px rgba(2, 6, 23, 0.45);
+}
+
+.form-clarity .form-control::placeholder,
+.form-clarity textarea::placeholder {
+    color: #94a3b8;
+    opacity: 0.95;
+}
+
+.form-clarity .form-control:focus,
+.form-clarity .form-select:focus,
+.form-clarity textarea:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 0.2rem rgba(56, 189, 248, 0.25);
+    background: rgba(15, 23, 42, 0.9);
+    color: #ffffff;
+}
+
+.form-clarity .form-control:disabled,
+.form-clarity .form-select:disabled,
+.form-clarity textarea:disabled {
+    color: rgba(226, 232, 240, 0.6);
+    background: rgba(15, 23, 42, 0.5);
+    border-color: rgba(148, 163, 184, 0.25);
+}
+
+.form-clarity .input-group .btn {
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    background: rgba(15, 23, 42, 0.6);
+    color: #e2e8f0;
+    min-height: 44px;
+}
+
+.form-clarity .invalid-feedback {
+    color: #fca5a5;
 }

@@ -16,6 +16,8 @@ $types = [
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isManager) {
+    requireValidCsrfToken($_POST['csrf_token'] ?? null, 'users.php');
+
     $targetId = (int)($_POST['user_id'] ?? 0);
     $newType = $_POST['user_type'] ?? '';
 
@@ -107,7 +109,7 @@ try {
                             <th>Nome</th>
                             <th>E-mail</th>
                             <th>Telefone</th>
-                            <th>CPF</th>
+                            <th>Documento</th>
                             <th>Tipo</th>
                             <th>Criado em</th>
                             <?php if (in_array($userType, ['gestor','admin'], true)): ?>
@@ -117,12 +119,20 @@ try {
                         </thead>
                         <tbody>
                         <?php foreach ($users as $u): ?>
+                            <?php
+                                $document = '';
+                                if (($u['person_type'] ?? 'pf') === 'pj') {
+                                    $document = $u['cnpj'] ?? '';
+                                } else {
+                                    $document = $u['cpf'] ?? '';
+                                }
+                            ?>
                             <tr>
                                 <td><?php echo htmlspecialchars($u['id']); ?></td>
                                 <td><?php echo htmlspecialchars($u['name']); ?></td>
                                 <td><?php echo htmlspecialchars($u['email']); ?></td>
                                 <td><?php echo htmlspecialchars($u['phone']); ?></td>
-                                <td><?php echo htmlspecialchars($u['cpf']); ?></td>
+                                <td><?php echo htmlspecialchars($document); ?></td>
                                 <td>
                                     <span class="badge badge-role text-uppercase"><?php echo htmlspecialchars($types[$u['user_type']] ?? $u['user_type']); ?></span>
                                 </td>
@@ -130,6 +140,7 @@ try {
                                 <?php if (in_array($userType, ['gestor','admin'], true)): ?>
                                     <td>
                                         <form method="POST" class="d-flex gap-2 align-items-center mb-0">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrfToken()); ?>">
                                             <input type="hidden" name="user_id" value="<?php echo (int)$u['id']; ?>">
                                             <select name="user_type" class="form-select form-select-sm">
                                                 <?php foreach ($types as $key => $label): ?>

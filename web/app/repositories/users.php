@@ -10,19 +10,46 @@ function findUserByEmail(PDO $pdo, string $email): ?array
     return $user ?: null;
 }
 
-function findUserByEmailOrCpf(PDO $pdo, string $email, string $cpf): ?array
+function findUserByEmailOrCpf(PDO $pdo, string $email, ?string $cpf, ?string $cnpj = null): ?array
 {
-    $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :email OR cpf = :cpf LIMIT 1');
-    $stmt->execute(['email' => $email, 'cpf' => $cpf]);
+    $conditions = ['email = :email'];
+    $params = ['email' => $email];
+
+    if ($cpf !== null && $cpf !== '') {
+        $conditions[] = 'cpf = :cpf';
+        $params['cpf'] = $cpf;
+    }
+    if ($cnpj !== null && $cnpj !== '') {
+        $conditions[] = 'cnpj = :cnpj';
+        $params['cnpj'] = $cnpj;
+    }
+
+    $sql = 'SELECT id FROM users WHERE ' . implode(' OR ', $conditions) . ' LIMIT 1';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $user = $stmt->fetch();
 
     return $user ?: null;
 }
 
-function findOtherUserByEmailOrCpf(PDO $pdo, string $email, string $cpf, int $id): ?array
+function findOtherUserByEmailOrCpf(PDO $pdo, string $email, ?string $cpf, int $id, ?string $cnpj = null): ?array
 {
-    $stmt = $pdo->prepare('SELECT id FROM users WHERE (email = :email OR cpf = :cpf) AND id != :id LIMIT 1');
-    $stmt->execute(['email' => $email, 'cpf' => $cpf, 'id' => $id]);
+    $conditions = ['email = :email'];
+    $params = ['email' => $email];
+
+    if ($cpf !== null && $cpf !== '') {
+        $conditions[] = 'cpf = :cpf';
+        $params['cpf'] = $cpf;
+    }
+    if ($cnpj !== null && $cnpj !== '') {
+        $conditions[] = 'cnpj = :cnpj';
+        $params['cnpj'] = $cnpj;
+    }
+    $params['id'] = $id;
+
+    $sql = 'SELECT id FROM users WHERE (' . implode(' OR ', $conditions) . ') AND id != :id LIMIT 1';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $user = $stmt->fetch();
 
     return $user ?: null;
@@ -30,7 +57,7 @@ function findOtherUserByEmailOrCpf(PDO $pdo, string $email, string $cpf, int $id
 
 function findUserById(PDO $pdo, int $id): ?array
 {
-    $stmt = $pdo->prepare('SELECT name, phone, email, cpf, address, neighborhood, zip, user_type FROM users WHERE id = :id LIMIT 1');
+    $stmt = $pdo->prepare('SELECT name, phone, email, person_type, cpf, cnpj, address, neighborhood, zip, user_type FROM users WHERE id = :id LIMIT 1');
     $stmt->execute(['id' => $id]);
     $user = $stmt->fetch();
 
@@ -48,7 +75,22 @@ function findUserContactById(PDO $pdo, int $id): ?array
 
 function listUsers(PDO $pdo): array
 {
-    $stmt = $pdo->query('SELECT id, name, email, phone, cpf, user_type, created_at FROM users ORDER BY created_at DESC');
+    $stmt = $pdo->query('SELECT id, name, email, phone, person_type, cpf, cnpj, user_type, created_at FROM users ORDER BY created_at DESC');
+    return $stmt->fetchAll();
+}
+
+function listInternalUsersBySecretaria(PDO $pdo, int $secretariaId): array
+{
+    $stmt = $pdo->prepare('
+        SELECT u.id, u.name, u.email, u.user_type
+        FROM users u
+        LEFT JOIN usuario_secretarias us
+            ON us.usuario_id = u.id AND us.secretaria_id = :secretaria_id
+        WHERE u.user_type IN ("gestor", "admin")
+          AND (u.user_type = "admin" OR us.secretaria_id IS NOT NULL)
+        ORDER BY u.name ASC
+    ');
+    $stmt->execute(['secretaria_id' => $secretariaId]);
     return $stmt->fetchAll();
 }
 
@@ -67,8 +109,8 @@ function updateUserPassword(PDO $pdo, int $id, string $passwordHash): void
 function createUser(PDO $pdo, array $data): int
 {
     $stmt = $pdo->prepare('
-        INSERT INTO users (name, phone, email, cpf, address, neighborhood, zip, user_type, password_hash, verification_token, created_at, updated_at)
-        VALUES (:name, :phone, :email, :cpf, :address, :neighborhood, :zip, :user_type, :password_hash, :token, NOW(), NOW())
+        INSERT INTO users (name, phone, email, person_type, cpf, cnpj, address, neighborhood, zip, user_type, password_hash, verification_token, created_at, updated_at)
+        VALUES (:name, :phone, :email, :person_type, :cpf, :cnpj, :address, :neighborhood, :zip, :user_type, :password_hash, :token, NOW(), NOW())
     ');
 
     $stmt->execute($data);
@@ -77,7 +119,7 @@ function createUser(PDO $pdo, array $data): int
 
 function updateUserProfile(PDO $pdo, int $id, array $fields, ?string $passwordHash): void
 {
-    $sql = 'UPDATE users SET name = :name, phone = :phone, email = :email, cpf = :cpf, address = :address, neighborhood = :neighborhood, zip = :zip, updated_at = NOW()';
+    $sql = 'UPDATE users SET name = :name, phone = :phone, email = :email, person_type = :person_type, cpf = :cpf, cnpj = :cnpj, address = :address, neighborhood = :neighborhood, zip = :zip, updated_at = NOW()';
     if ($passwordHash !== null) {
         $fields['password_hash'] = $passwordHash;
         $sql .= ', password_hash = :password_hash';

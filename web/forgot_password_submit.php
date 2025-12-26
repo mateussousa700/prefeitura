@@ -6,6 +6,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+requireValidCsrfToken($_POST['csrf_token'] ?? null, 'forgot_password.php');
+
 $email = trim($_POST['email'] ?? '');
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {

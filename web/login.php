@@ -6,6 +6,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+requireValidCsrfToken($_POST['csrf_token'] ?? null, 'index.php#login');
+
 $email = trim($_POST['email'] ?? '');
 $password = $_POST['password'] ?? '';
 
@@ -25,6 +27,23 @@ try {
         exit;
     }
 
+    $verified = ($user['email_verified_at'] !== null) || ($user['whatsapp_verified_at'] !== null);
+    $pendingVerification = isset($user['verification_token']) && $user['verification_token'] !== null && $user['verification_token'] !== '';
+    if (!$verified && $pendingVerification) {
+        $userType = $user['user_type'] ?? 'populacao';
+        $isInternal = in_array($userType, ['admin', 'gestor', 'gestor_global'], true);
+        if ($isInternal || userHasServiceRequests($pdo, (int)$user['id'])) {
+            verifyUserById($pdo, (int)$user['id']);
+            $verified = true;
+        }
+    }
+    if (!$verified && $pendingVerification) {
+        flash('danger', 'Confirme seu cadastro por e-mail ou WhatsApp para continuar.');
+        header('Location: index.php#login');
+        exit;
+    }
+
+    session_regenerate_id(true);
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['user_name'] = $user['name'];
     $_SESSION['user_type'] = $user['user_type'] ?? 'populacao';

@@ -6,10 +6,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+requireValidCsrfToken($_POST['csrf_token'] ?? null, 'index.php#register');
+
 $name = trim($_POST['name'] ?? '');
 $phone = trim($_POST['phone'] ?? '');
 $email = trim($_POST['email'] ?? '');
+$personType = trim($_POST['person_type'] ?? '');
 $cpf = trim($_POST['cpf'] ?? '');
+$cnpj = trim($_POST['cnpj'] ?? '');
 $address = trim($_POST['address'] ?? '');
 $neighborhood = trim($_POST['neighborhood'] ?? '');
 $zip = trim($_POST['zip'] ?? '');
@@ -32,8 +36,19 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 $cpfDigits = normalizeDigits($cpf);
-if ($cpfDigits === '' || strlen($cpfDigits) !== 11) {
-    $errors[] = 'CPF deve conter 11 dígitos.';
+$cnpjDigits = normalizeDigits($cnpj);
+if (!in_array($personType, ['pf', 'pj'], true)) {
+    $errors[] = 'Tipo de pessoa inválido.';
+} elseif ($personType === 'pf') {
+    if (!isValidCpf($cpfDigits)) {
+        $errors[] = 'CPF inválido.';
+    }
+    $cnpjDigits = null;
+} else {
+    if (!isValidCnpj($cnpjDigits)) {
+        $errors[] = 'CNPJ inválido.';
+    }
+    $cpfDigits = null;
 }
 
 if ($address === '') {
@@ -66,9 +81,9 @@ if ($errors) {
 try {
     $pdo = getPDO();
 
-    $existing = findUserByEmailOrCpf($pdo, $email, $cpfDigits);
+    $existing = findUserByEmailOrCpf($pdo, $email, $cpfDigits, $cnpjDigits);
     if ($existing) {
-        flash('danger', 'E-mail ou CPF já cadastrado.');
+        flash('danger', 'E-mail, CPF ou CNPJ já cadastrado.');
         header('Location: index.php#register');
         exit;
     }
@@ -81,7 +96,9 @@ try {
         'name' => $name,
         'phone' => $phoneDigits,
         'email' => $email,
+        'person_type' => $personType,
         'cpf' => $cpfDigits,
+        'cnpj' => $cnpjDigits,
         'address' => $address,
         'neighborhood' => $neighborhood,
         'zip' => $cepFormatted,

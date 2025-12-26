@@ -27,3 +27,15 @@ const MAIL_USER = 'contato@apexobras.com.br';
 const MAIL_PASS = 'Caninde.123';
 const MAIL_FROM = 'contato@apexobras.com.br';
 const MAIL_FROM_NAME = 'Prefeitura Digital';
+
+// Prevenção de chamados duplicados.
+const DUPLICATE_RADIUS_METERS = 50;
+const DUPLICATE_DAYS_WINDOW = 3;
+const DUPLICATE_MAX_RESULTS = 5;
+
+// Ativos urbanos (raio de busca padrao e limite de resultados).
+const ATIVOS_RADIUS_METERS = 50;
+const ATIVOS_MAX_RESULTS = 10;
+
+// Assinatura dos relatorios PDF (QR code).
+const REPORTS_SECRET = 'altere-este-segredo';

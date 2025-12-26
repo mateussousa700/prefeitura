@@ -40,6 +40,20 @@ try {
     }
 
     $verified = ($user['email_verified_at'] !== null) || ($user['whatsapp_verified_at'] !== null);
+    $pendingVerification = isset($user['verification_token']) && $user['verification_token'] !== null && $user['verification_token'] !== '';
+    if (!$verified && $pendingVerification) {
+        $userType = $user['user_type'] ?? 'populacao';
+        $isInternal = in_array($userType, ['admin', 'gestor', 'gestor_global'], true);
+        if ($isInternal || userHasServiceRequests($pdo, (int)$user['id'])) {
+            verifyUserById($pdo, (int)$user['id']);
+            $verified = true;
+        }
+    }
+    if (!$verified && $pendingVerification) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Conta não verificada. Confirme e-mail ou WhatsApp.']);
+        exit;
+    }
 
     echo json_encode([
         'status' => 'ok',
